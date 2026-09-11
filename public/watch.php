@@ -23,7 +23,7 @@ $bookmarks = $stmt->fetchAll();
 <div class="max-w-7xl mx-auto px-6 py-8 w-full box-border">
     <!-- Две колонки на чистом Tailwind v4 (Слева плеер, справа sidebar) -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-        
+
         <!-- Левая колонка: Видеоплеер -->
         <div class="lg:col-span-2 bg-white p-4 rounded-xl border border-gray-200 shadow-xs">
             <video id="videoPlayer" controls class="w-full rounded-lg bg-black aspect-video" data-saved-volume="<?= (float)($video['volume'] ?? 1.0) ?>">
@@ -47,7 +47,7 @@ $bookmarks = $stmt->fetchAll();
                 <?php if (empty($bookmarks)): ?>
                     <p id="noBookmarksText" class="text-gray-400 text-center pt-8 text-sm">У этого видео пока нет меток.</p>
                 <?php endif; ?>
-                
+
                 <?php foreach ($bookmarks as $b): ?>
                     <div class="bookmark-item flex justify-between items-center p-3 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg mb-3 transition" id="bookmark-row-<?= $b['id'] ?>" data-timestamp="<?= $b['timestamp'] ?>">
                         <button onclick="goToTime(<?= $b['timestamp'] ?>)" class="bg-none border-none text-left text-blue-600 hover:text-blue-800 font-bold cursor-pointer p-0 flex-1 text-sm flex items-center">
@@ -73,10 +73,10 @@ $bookmarks = $stmt->fetchAll();
         <h3 id="modalTitle" class="text-xl font-extrabold mb-4 text-gray-800 m-0 tracking-tight">Новый фрагмент</h3>
         <input type="hidden" id="bookmarkId">
         <input type="hidden" id="bookmarkTime">
-        
+
         <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Название метки:</label>
         <input type="text" id="bookmarkTitleInput" class="w-full p-2.5 border border-gray-300 rounded-lg text-sm mb-5 box-border outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10" placeholder="Например: Разбор грамматики, Новые слова...">
-        
+
         <div class="flex justify-end gap-3">
             <button onclick="closeModal()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-xs font-bold border-none cursor-pointer transition">Отмена</button>
             <button onclick="saveBookmark()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-bold border-none cursor-pointer transition">Сохранить</button>
@@ -124,6 +124,7 @@ $bookmarks = $stmt->fetchAll();
         return `${m}:${s}`;
     }
 
+    // Сохранение метки таймкода (Без перезагрузок и сброса плеера!)
     function saveBookmark() {
         const id = document.getElementById('bookmarkId').value;
         const title = document.getElementById('bookmarkTitleInput').value.trim();
@@ -142,28 +143,89 @@ $bookmarks = $stmt->fetchAll();
         }
         formData.append('title', title);
 
-        fetch('api.php', { method: 'POST', body: formData })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success || data === true) {
-                closeModal();
-                if (id) {
-                    document.getElementById('title-text-' + id).innerText = title;
+        fetch('api.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success || data === true) {
+                    closeModal(); // Закрываем всплывающее окно
+
+                    if (id) {
+                        // Если редактировали — просто обновляем текст на экране
+                        document.getElementById('title-text-' + id).innerText = title;
+                    } else {
+                        // Если добавляли новую — удаляем текст "У этого видео пока нет меток", если он есть
+                        const noText = document.getElementById('noBookmarksText');
+                        if (noText) noText.remove();
+
+                        // Создаем уникальный временный ID для новой строки на экране
+                        const tempId = Date.now();
+
+                        // Форматируем время в мм:сс
+                        const m = Math.floor(timestamp / 60).toString().padStart(2, '0');
+                        const s = Math.floor(timestamp % 60).toString().padStart(2, '0');
+
+                        // Создаем HTML-структуру новой строки строго по стандартам Tailwind v4
+                        const newRow = document.createElement('div');
+                        newRow.className = 'bookmark-item flex justify-between items-center p-3 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg mb-3 transition';
+                        newRow.id = 'bookmark-row-' + tempId;
+                        newRow.setAttribute('data-timestamp', timestamp); // Важно для сортировки
+
+                        newRow.innerHTML = `
+                    <button onclick="goToTime(${timestamp})" class="bg-none border-none text-left text-blue-600 hover:text-blue-800 font-bold cursor-pointer p-0 flex-1 text-sm flex items-center">
+                        <span class="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-md mr-3 shrink-0">${m}:${s}</span>
+                        <span id="title-text-${tempId}" class="break-all">${escapeHtml(title)}</span>
+                    </button>
+                    <div class="flex gap-3 ml-2 shrink-0">
+                        <button onclick="editBookmark(${tempId})" class="bg-none border-none text-gray-400 hover:text-yellow-600 text-xs cursor-pointer p-0">Ред.</button>
+                        <button onclick="deleteBookmark(${tempId})" class="bg-none border-none text-gray-400 hover:text-red-600 text-xs cursor-pointer p-0">Уд.</button>
+                    </div>
+                `;
+
+                        // --- УМНАЯ СОРТИРОВКА НА СТРАНИЦЕ НА JS ---
+                        const list = document.getElementById('bookmarksList');
+                        const rows = Array.from(list.querySelectorAll('.bookmark-item'));
+
+                        let inserted = false;
+                        for (let i = 0; i < rows.length; i++) {
+                            const rowTime = parseFloat(rows[i].getAttribute('data-timestamp') || 0);
+                            if (timestamp < rowTime) {
+                                list.insertBefore(newRow, rows[i]);
+                                inserted = true;
+                                break;
+                            }
+                        }
+                        if (!inserted) {
+                            list.appendChild(newRow);
+                        }
+                    }
+
+                    // ВИДЕО ПРОДОЛЖАЕТ ИГРАТЬ: Снимаем с паузы и учимся дальше!
+                    //player.play();
                 } else {
-                    location.reload(); // Перезагружаем для нативной сортировки SQLite
+                    alert('Ошибка сохранения: ' + (data.error || 'Неизвестная ошибка'));
                 }
-            } else {
-                alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
-            }
-        });
+            })
+            .catch(err => alert('Ошибка сети при отправке запроса'));
     }
+
+    // Защита от поломки HTML-верстки при вводе спецсимволов
+    function escapeHtml(text) {
+        return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
 
     function deleteBookmark(id) {
         if (!confirm('Вы уверены, что хотите удалить эту метку?')) return;
         const formData = new FormData();
         formData.append('action', 'delete_bookmark');
         formData.append('id', id);
-        fetch('api.php', { method: 'POST', body: formData }).then(() => document.getElementById('bookmark-row-' + id).remove());
+        fetch('api.php', {
+            method: 'POST',
+            body: formData
+        }).then(() => document.getElementById('bookmark-row-' + id).remove());
     }
 
     // Пробел
@@ -171,7 +233,8 @@ $bookmarks = $stmt->fetchAll();
         if (document.activeElement === document.getElementById('bookmarkTitleInput')) return;
         if (e.code === 'Space' || e.keyCode === 32) {
             e.preventDefault();
-            if (player.paused) player.play(); else player.pause();
+            if (player.paused) player.play();
+            else player.pause();
         }
     });
 
@@ -186,7 +249,10 @@ $bookmarks = $stmt->fetchAll();
             formData.append('action', 'save_volume');
             formData.append('video_id', videoId);
             formData.append('volume', player.volume);
-            fetch('api.php', { method: 'POST', body: formData });
+            fetch('api.php', {
+                method: 'POST',
+                body: formData
+            });
         }, 400);
     });
 </script>
