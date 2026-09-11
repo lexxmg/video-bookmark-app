@@ -5,59 +5,65 @@ include __DIR__ . '/includes/header.php';
 $videos = $pdo->query("SELECT * FROM videos ORDER BY id DESC")->fetchAll();
 ?>
 
-<div class="container">
-    <h2 class="page-title">Доступные материалы для изучения</h2>
+<!-- Главный контейнер (Ограничиваем по ширине на больших мониторах) -->
+<div class="max-w-7xl mx-auto px-6 py-8 w-full box-border">
+    
+    <!-- Красивый акцентный заголовок по стандартам v4 -->
+    <h2 class="text-2xl font-extrabold text-gray-800 mb-8 pb-3 border-b-2 border-gray-200 tracking-tight">
+        Доступные материалы для изучения
+    </h2>
 
     <?php if (empty($videos)): ?>
-        <div class="admin-box" style="text-align: center;">
-            <p style="color: #6b7280; margin-bottom: 1rem;">В каталоге пока нет видеофайлов.</p>
-            <a href="admin.php" style="color: #2563eb; font-weight: 600; text-decoration: none;">Перейти в админку для синхронизации файлов →</a>
+        <div class="bg-white p-8 rounded-xl shadow-md text-center border border-gray-200 max-w-2xl mx-auto">
+            <p class="text-gray-500 mb-4 text-base">В каталоге пока нет видеофайлов.</p>
+            <a href="admin.php" class="text-blue-600 font-semibold hover:text-blue-800 transition duration-150">Перейти в админку для синхронизации файлов →</a>
         </div>
     <?php else: ?>
-        <div class="grid">
+        <!-- Нативная адаптивная сетка v4: 1 колонка на мобилках, 2 на планшетах, 3-4 на мониторах -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 w-full box-border">
             <?php foreach ($videos as $v): ?>
                 <?php 
-                    // ЗАЩИТА ОТ ДУРАКА: Проверяем, существует ли файл картинки физически
-                    $imgName = pathinfo($v['file_name'], PATHINFO_FILENAME) . '.jpg';
-                    $thumbPath = __DIR__ . '/../storage/thumbnails/' . $imgName;
-                    
-                    if ((int)$v['has_thumbnail'] === 1 && !file_exists($thumbPath)) {
-                        // Если файла нет, сбрасываем флаг в БД на лету
-                        $fixStmt = $pdo->prepare("UPDATE videos SET has_thumbnail = 0 WHERE id = ?");
-                        $fixStmt->execute([$v['id']]);
-                        $v['has_thumbnail'] = 0; // Меняем значение переменной для текущей страницы
-                    }
+                // Защита от дурака: проверяем наличие картинки на диске
+                $imgName = pathinfo($v['file_name'], PATHINFO_FILENAME) . '.jpg';
+                $thumbPath = __DIR__ . '/../storage/thumbnails/' . $imgName;
+                
+                if ((int)$v['has_thumbnail'] === 1 && !file_exists($thumbPath)) {
+                    $fixStmt = $pdo->prepare("UPDATE videos SET has_thumbnail = 0 WHERE id = ?");
+                    $fixStmt->execute([$v['id']]);
+                    $v['has_thumbnail'] = 0;
+                }
                 ?>
-
-                <div class="card" id="video-card-<?= $v['id'] ?>">
+                
+                <!-- Жесткая прямоугольная плитка фиксированной высоты -->
+                <div class="bg-white border border-gray-200 rounded-xl overflow-hidden flex flex-col shadow-sm hover:shadow-md transition-shadow duration-200 h-80 box-border" id="video-card-<?= $v['id'] ?>">
                     
-                    <!-- КЛИКАБЕЛЬНЫЙ БЛОК ПРЕВЬЮ -->
-                    <a href="watch.php?id=<?= $v['id'] ?>" class="card-preview" style="display: block; position: relative; background: #000; height: 160px; overflow: hidden;" title="Нажмите, чтобы открыть плеер">
-                        
+                    <!-- Кликабельный блок превью видео (Нажмите, чтобы смотреть) -->
+                    <a href="watch.php?id=<?= $v['id'] ?>" class="block relative bg-slate-900 h-40 min-h-40 overflow-hidden w-full cursor-pointer" title="Нажмите, чтобы открыть плеер">
                         <?php if ((int)$v['has_thumbnail'] === 1): ?>
-                            <!-- Изменен путь: картинка берется из папки thumbnails -->
-                            <?php $imgName = pathinfo($v['file_name'], PATHINFO_FILENAME) . '.jpg'; ?>
-                            <img src="/storage/thumbnails/<?= rawurlencode($imgName) ?>" style="width: 100%; height: 100%; object-fit: cover;" alt="Превью">
+                            <img src="/storage/thumbnails/<?= rawurlencode($imgName) ?>" class="w-full h-full object-cover" alt="Превью">
                         <?php else: ?>
-                            <canvas id="canvas-<?= $v['id'] ?>" width="320" height="180" style="width: 100%; height: 100%; object-fit: cover; display: none;"></canvas>
-                            <div id="loader-<?= $v['id'] ?>" style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; color: #fff;">🎬</div>
+                            <canvas id="canvas-<?= $v['id'] ?>" width="320" height="180" class="w-full h-full object-cover hidden"></canvas>
+                            <div id="loader-<?= $v['id'] ?>" class="absolute inset-0 flex items-center justify-center text-4xl text-white">🎬</div>
                         <?php endif; ?>
-
                     </a>
-
-                    <div class="card-body">
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 1rem;">
-                            <h3 class="card-title" id="video-title-<?= $v['id'] ?>" style="margin: 0; font-size: 1rem; line-height: 1.4;" title="<?= htmlspecialchars($v['title']) ?>">
+                    
+                    <!-- Контентная часть карточки -->
+                    <div class="p-4 flex-1 flex flex-col justify-between overflow-hidden box-border">
+                        <div class="flex justify-between items-start gap-2 mb-3 overflow-hidden">
+                            <!-- Обрезка длинного названия строго в 2 строки средствами Tailwind v4 -->
+                            <h3 class="font-bold text-gray-800 text-sm leading-snug line-clamp-2 m-0 flex-1" id="video-title-<?= $v['id'] ?>" title="<?= htmlspecialchars($v['title']) ?>">
                                 <?= htmlspecialchars($v['title']) ?>
                             </h3>
-                            <button onclick="openEditVideoModal(<?= $v['id'] ?>)" style="background: none; border: none; color: #9ca3af; cursor: pointer; padding: 2px; font-size: 0.9rem;" class="btn-action edit" title="Переименовать">✏️</button>
+                            <button onclick="openEditVideoModal(<?= $v['id'] ?>)" class="bg-none border-none text-gray-400 hover:text-yellow-600 cursor-pointer p-1 text-xs shrink-0 transition-colors" title="Переименовать">✏️</button>
                         </div>
-                        <a href="watch.php?id=<?= $v['id'] ?>" class="btn">🎬 Начать просмотр</a>
+                        
+                        <a href="watch.php?id=<?= $v['id'] ?>" class="block w-full text-center bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-semibold text-sm shadow-sm hover:shadow-md transition duration-150">
+                            🎬 Начать просмотр
+                        </a>
                     </div>
 
-                    <!-- Скрытый плеер генерируется только если картинки еще нет в базе -->
                     <?php if ((int)$v['has_thumbnail'] !== 1): ?>
-                        <video id="thumb-video-<?= $v['id'] ?>" data-id="<?= $v['id'] ?>" data-src="/storage/videos/<?= rawurlencode($v['file_name']) ?>" preload="none" muted style="display: none;"></video>
+                        <video id="thumb-video-<?= $v['id'] ?>" data-id="<?= $v['id'] ?>" data-src="/storage/videos/<?= rawurlencode($v['file_name']) ?>" preload="none" muted class="hidden"></video>
                     <?php endif; ?>
                 </div>
             <?php endforeach; ?>
@@ -66,27 +72,25 @@ $videos = $pdo->query("SELECT * FROM videos ORDER BY id DESC")->fetchAll();
 </div>
 
 <!-- Модалка переименования видео -->
-<div id="editVideoModal" class="modal hidden">
-    <div class="modal-content">
-        <h3 class="text-xl font-bold mb-4 text-gray-800" style="margin-top: 0; margin-bottom: 1rem;">Переименовать видео</h3>
+<div id="editVideoModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 box-border">
+    <div class="bg-white p-6 rounded-xl border border-gray-200 max-w-md w-full shadow-xl box-border">
+        <h3 class="text-xl font-extrabold mb-4 text-gray-800 m-0 tracking-tight">Переименовать видео</h3>
         <input type="hidden" id="editVideoId">
         
-        <label style="font-size: 0.875rem; color: #4b5563; font-weight: 500;">Название плитки:</label>
-        <input type="text" id="editVideoTitleInput" class="input-field">
+        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Название плитки:</label>
+        <input type="text" id="editVideoTitleInput" class="w-full p-2.5 border border-gray-300 rounded-lg text-sm mb-5 box-border outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10">
         
-        <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
-            <button onclick="closeEditVideoModal()" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-md font-medium border-none cursor-pointer">Отмена</button>
-            <button onclick="saveVideoTitle()" class="bg-blue-600 text-white px-4 py-2 rounded-md font-medium border-none cursor-pointer">Сохранить</button>
+        <div class="flex justify-end gap-3">
+            <button onclick="closeEditVideoModal()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-xs font-bold border-none cursor-pointer transition">Отмена</button>
+            <button onclick="saveVideoTitle()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-bold border-none cursor-pointer transition">Сохранить</button>
         </div>
     </div>
 </div>
 
 <script>
-// --- УМНАЯ ОЧЕРЕДЬ ГЕНЕРАЦИИ И КЭШИРОВАНИЯ КАДРОВ ---
+// --- ОЧЕРЕДЬ ГЕНЕРАЦИИ КАДРОВ ---
 document.addEventListener("DOMContentLoaded", function() {
     const queue = [];
-    
-    // Собираем в очередь ТОЛЬКО те видео, у которых еще нет готовой миниатюры
     <?php foreach ($videos as $v): ?>
     <?php if ((int)$v['has_thumbnail'] !== 1): ?>
     queue.push({
@@ -106,35 +110,26 @@ document.addEventListener("DOMContentLoaded", function() {
         current.video.load();
 
         current.video.onloadedmetadata = function() {
-            current.video.currentTime = 2; // Берем красивый кадр на 2-й секунде
+            current.video.currentTime = 2;
         };
 
         current.video.onseeked = function() {
             try {
                 const ctx = current.canvas.getContext('2d');
                 ctx.drawImage(current.video, 0, 0, current.canvas.width, current.canvas.height);
-                current.canvas.style.display = 'block';
-                current.loader.style.display = 'none';
+                current.canvas.classList.remove('hidden');
+                current.loader.classList.add('hidden');
 
-                // Получаем снимок в виде текстовой Base64-строки JPEG высокого качества
                 const base64Image = current.canvas.toDataURL('image/jpeg', 0.85);
 
-                // Отправляем картинку на бэкенд для записи в файл навсегда
                 const formData = new FormData();
                 formData.append('action', 'save_thumbnail');
                 formData.append('id', current.id);
                 formData.append('image', base64Image);
 
-                fetch('api.php', { method: 'POST', body: formData })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        console.log("Миниатюра для видео #" + current.id + " успешно сохранена на сервере!");
-                    }
-                });
-
+                fetch('api.php', { method: 'POST', body: formData });
             } catch (e) {
-                console.error("Ошибка сохранения кадра:", e);
+                console.error("Ошибка кадра:", e);
             }
 
             current.video.src = "";
@@ -144,11 +139,10 @@ document.addEventListener("DOMContentLoaded", function() {
             setTimeout(processNext, 50); 
         };
     }
-
     processNext();
 });
 
-// --- ЛОГИКА РЕДАКТИРОВАНИЯ НАЗВАНИЯ ---
+// --- ЛОГИКА МОДАЛКИ ПЕРЕИМЕНОВАНИЯ ---
 const videoModal = document.getElementById('editVideoModal');
 
 function openEditVideoModal(id) {

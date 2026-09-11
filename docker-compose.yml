@@ -13,7 +13,7 @@ services:
 
   app:
     build: .
-    # УВЕЛИЧИВАЕМ ЛИМИТЫ PHP ДО 2 ГИГАБАЙТ ПРЯМО ПРИ СТАРТЕ
-    command: php-fpm -d upload_max_filesize=2000M -d post_max_size=2000M
+    # Прокидываем скомпилированный по стандартам Node.js файл обратно на ваш ПК и включаем PHP
+    command: sh -c "cp /tmp/tailwind.css /var/www/html/public/includes/tailwind.css && php-fpm -d upload_max_filesize=2000M -d post_max_size=2000M"
     volumes:
       - ./:/var/www/html

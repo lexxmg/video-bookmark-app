@@ -115,21 +115,34 @@ $allVideos = $pdo->query("SELECT * FROM videos ORDER BY id DESC")->fetchAll();
 
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
         
-        <!-- БЛОК 1: ЗАГРУЗКА НОВОГО ВИДЕО -->
-        <div class="bg-white p-6 rounded-md shadow-sm border border-gray-200">
-            <h3 class="text-xl font-bold mb-4 text-gray-700" style="margin-top:0;">Загрузить новое video</h3>
-            <form method="POST" enctype="multipart/form-data" id="uploadForm">
-                <label class="block text-sm font-medium text-gray-600 mb-2">Выберите файл (.mp4):</label>
-                <input type="file" name="video_file" accept="video/mp4" required style="display:block; margin-bottom:1.5rem; font-size:0.875rem;">
+                <!-- БЛОК 1: ЗАГРУЗКА НОВОГО ВИДЕО -->
+        <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+            <h3 class="text-xl font-bold mb-4 text-gray-700 m-0">Загрузить новое видео</h3>
+            
+            <form method="POST" enctype="multipart/form-data" id="uploadForm" class="flex flex-col gap-4">
+                <span class="block text-xs font-semibold text-gray-500 uppercase tracking-wider">Выберите файл (.mp4):</span>
                 
-                <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md font-medium text-sm transition cursor-pointer border-none shadow-sm">
+                <!-- КРАСИВАЯ КЛИКАБЕЛЬНАЯ ЗОНА С СЕНСОРНЫМ КУРСОРOM -->
+                <label class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 hover:border-blue-500 transition duration-150 p-4 box-border text-center">
+                    <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                        <span class="text-3xl mb-2">📁</span>
+                        <p class="text-sm text-gray-600 font-semibold m-0" id="file-select-text">Нажмите для выбора файла</p>
+                        <p class="text-xs text-gray-400 m-0 mt-1">Максимальный размер: 2 ГБ</p>
+                    </div>
+                    <!-- Сам скрытый инпут, который активируется кликом по лейблу сверху -->
+                    <input type="file" name="video_file" id="video_file_input" accept="video/mp4" required class="hidden">
+                </label>
+                
+                <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg font-semibold text-sm shadow-sm hover:shadow-md transition duration-150 cursor-pointer border-none mt-2">
                     🚀 Начать загрузку на сервер
                 </button>
             </form>
-            <div id="progressStatus" style="display:none; margin-top:1rem; font-size:0.875rem; color:#2563eb; font-weight:600;">
+            
+            <div id="progressStatus" class="hidden mt-4 text-sm text-blue-600 font-semibold">
                 ⏳ Файл отправляется на сервер, пожалуйста, не закрывайте вкладку...
             </div>
         </div>
+
 
         <!-- БЛОК 2: СИНХРОНИЗАЦИЯ С ПАПКОЙ -->
         <div class="bg-white p-6 rounded-md shadow-sm border border-gray-200" style="display:flex; flex-direction:column; justify-content:space-between;">
@@ -209,6 +222,13 @@ function deleteVideoCompletely(id, title) {
     })
     .catch(err => alert("Ошибка сети при отправке запроса в API"));
 }
+
+// Динамическое отображение имени выбранного файла в админке
+document.getElementById('video_file_input').addEventListener('change', function(e) {
+    const fileName = e.target.files[0] ? e.target.files[0].name : "Нажмите для выбора файла";
+    document.getElementById('file-select-text').innerText = fileName;
+    document.getElementById('file-select-text').classList.add('text-blue-600');
+});
 </script>
 
 <?php include __DIR__ . '/includes/footer.php'; ?>
