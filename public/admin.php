@@ -44,7 +44,7 @@ if (isset($_FILES['video_file'])) {
     }
 }
 
-// --- СИНХРОНИЗАЦИЯ (ПРОШЛАЯ ЛОГИКА) ---
+// --- СИНХРОНИЗАЦИЯ С КОНТРОЛЕМ МИНИАТЮР («ЗАЩИТА ОТ ДУРАКА») ---
 if (isset($_POST['sync'])) {
     $diskFiles = [];
     if (is_dir($videosDir)) {
@@ -56,6 +56,7 @@ if (isset($_POST['sync'])) {
         }
     }
 
+    // 1. Добавляем новые файлы с диска в БД
     $addedCount = 0;
     foreach ($diskFiles as $file) {
         $stmt = $pdo->prepare("SELECT COUNT(*) FROM videos WHERE file_name = ?");
@@ -68,20 +69,30 @@ if (isset($_POST['sync'])) {
         }
     }
 
-    $dbVideos = $pdo->query("SELECT id, file_name FROM videos")->fetchAll();
+    // 2. Автоматическая очистка утерянных видео и сброс удаленных вручную миниатюр
+    $dbVideos = $pdo->query("SELECT id, file_name, has_thumbnail FROM videos")->fetchAll();
     $deletedCount = 0;
     foreach ($dbVideos as $dbVideo) {
-        if (!in_array($dbVideo['file_name'], $diskFiles)) {
-            $fileNameNoExt = pathinfo($dbVideo['file_name'], PATHINFO_FILENAME);
-            $thumbFile = __DIR__ . '/../storage/thumbnails/' . $fileNameNoExt . '.jpg';
-            if (file_exists($thumbFile)) unlink($thumbFile);
+        $fileNameNoExt = pathinfo($dbVideo['file_name'], PATHINFO_FILENAME);
+        $thumbFile = __DIR__ . '/../storage/thumbnails/' . $fileNameNoExt . '.jpg';
 
+        if (!in_array($dbVideo['file_name'], $diskFiles)) {
+            // Если видео физически удалено с диска — стираем его миниатюру и запись в БД
+            if (file_exists($thumbFile)) {
+                unlink($thumbFile);
+            }
             $stmt = $pdo->prepare("DELETE FROM videos WHERE id = ?");
             $stmt->execute([$dbVideo['id']]);
             $deletedCount++;
+        } else {
+            // ЗАЩИТА ОТ ДУРАКА: Если видео на месте, но картинку .jpg стерли руками — сбрасываем флаг в БД
+            if ((int)$dbVideo['has_thumbnail'] === 1 && !file_exists($thumbFile)) {
+                $stmt = $pdo->prepare("UPDATE videos SET has_thumbnail = 0 WHERE id = ?");
+                $stmt->execute([$dbVideo['id']]);
+            }
         }
     }
-    $message = "Синхронизация завершена! Добавлено: $addedCount, Удалено мусорных записей: $deletedCount.";
+    $message = "Синхронизация завершена! Добавлено новых видео: $addedCount. Удалено мусорных записей: $deletedCount.";
 }
 
 // Получаем актуальный список видео для таблицы управления
@@ -106,10 +117,10 @@ $allVideos = $pdo->query("SELECT * FROM videos ORDER BY id DESC")->fetchAll();
         
         <!-- БЛОК 1: ЗАГРУЗКА НОВОГО ВИДЕО -->
         <div class="bg-white p-6 rounded-md shadow-sm border border-gray-200">
-            <h3 class="text-xl font-bold mb-4 text-gray-700" style="margin-top:0;">Загрузить новое видео</h3>
+            <h3 class="text-xl font-bold mb-4 text-gray-700" style="margin-top:0;">Загрузить новое video</h3>
             <form method="POST" enctype="multipart/form-data" id="uploadForm">
                 <label class="block text-sm font-medium text-gray-600 mb-2">Выберите файл (.mp4):</label>
-                <input type="file" name="video_file" accept=".video/mp4" required style="display:block; margin-bottom:1.5rem; font-size:0.875rem;">
+                <input type="file" name="video_file" accept="video/mp4" required style="display:block; margin-bottom:1.5rem; font-size:0.875rem;">
                 
                 <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md font-medium text-sm transition cursor-pointer border-none shadow-sm">
                     🚀 Начать загрузку на сервер
@@ -172,7 +183,7 @@ $allVideos = $pdo->query("SELECT * FROM videos ORDER BY id DESC")->fetchAll();
 </div>
 
 <script>
-// Индикация отправки формы (чтобы пользователь понимал, что идет загрузка крупного файла)
+// Индикация отправки формы
 document.getElementById('uploadForm').addEventListener('submit', function() {
     document.getElementById('progressStatus').style.display = 'block';
 });
@@ -191,7 +202,6 @@ function deleteVideoCompletely(id, title) {
     .then(res => res.json())
     .then(data => {
         if (data.success) {
-            // Удаляем строчку из таблицы на экране без перезагрузки
             document.getElementById('video-row-' + id).remove();
         } else {
             alert("Ошибка при удалении: " + data.error);
