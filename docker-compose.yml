@@ -13,5 +13,7 @@ services:
 
   app:
     build: .
+    # УВЕЛИЧИВАЕМ ЛИМИТЫ PHP ДО 2 ГИГАБАЙТ ПРЯМО ПРИ СТАРТЕ
+    command: php-fpm -d upload_max_filesize=2000M -d post_max_size=2000M
     volumes:
       - ./:/var/www/html

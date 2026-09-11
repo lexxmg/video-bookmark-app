@@ -151,6 +151,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         exit;
     }
+
+    // --- ПОЛНОЕ УДАЛЕНИЕ ВИДЕО И ЕГО ФАЙЛОВ ИЗ АДМИНКИ ---
+    if ($action === 'delete_video_completely') {
+        $video_id = (int)($_POST['id'] ?? 0);
+
+        try {
+            // Находим имя файла в базе данных
+            $stmt = $pdo->prepare("SELECT file_name FROM videos WHERE id = ?");
+            $stmt->execute([$video_id]);
+            $video = $stmt->fetch();
+
+            if ($video) {
+                $fileName = $video['file_name'];
+                $fileNameNoExt = pathinfo($fileName, PATHINFO_FILENAME);
+
+                // 1. Физически удаляем .mp4 видеофайл
+                $videoFile = __DIR__ . '/../storage/videos/' . $fileName;
+                if (file_exists($videoFile)) {
+                    unlink($videoFile);
+                }
+
+                // 2. Физически удаляем .jpg миниатюру
+                $thumbFile = __DIR__ . '/../storage/thumbnails/' . $fileNameNoExt . '.jpg';
+                if (file_exists($thumbFile)) {
+                    unlink($thumbFile);
+                }
+
+                // 3. Удаляем из базы данных (каскад ON DELETE CASCADE сотрет и метки автоматически!)
+                $stmt = $pdo->prepare("DELETE FROM videos WHERE id = ?");
+                $stmt->execute([$video_id]);
+
+                echo json_encode(['success' => true]);
+            } else {
+                echo json_encode(['success' => false, 'error' => 'Видео не найдено в БД']);
+            }
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
+        exit;
+    }
 }
 
 echo json_encode(['success' => false, 'error' => 'Неверный запрос API']);

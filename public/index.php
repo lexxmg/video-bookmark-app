@@ -16,6 +16,19 @@ $videos = $pdo->query("SELECT * FROM videos ORDER BY id DESC")->fetchAll();
     <?php else: ?>
         <div class="grid">
             <?php foreach ($videos as $v): ?>
+                <?php 
+                    // ЗАЩИТА ОТ ДУРАКА: Проверяем, существует ли файл картинки физически
+                    $imgName = pathinfo($v['file_name'], PATHINFO_FILENAME) . '.jpg';
+                    $thumbPath = __DIR__ . '/../storage/thumbnails/' . $imgName;
+                    
+                    if ((int)$v['has_thumbnail'] === 1 && !file_exists($thumbPath)) {
+                        // Если файла нет, сбрасываем флаг в БД на лету
+                        $fixStmt = $pdo->prepare("UPDATE videos SET has_thumbnail = 0 WHERE id = ?");
+                        $fixStmt->execute([$v['id']]);
+                        $v['has_thumbnail'] = 0; // Меняем значение переменной для текущей страницы
+                    }
+                ?>
+
                 <div class="card" id="video-card-<?= $v['id'] ?>">
                     
                     <!-- КЛИКАБЕЛЬНЫЙ БЛОК ПРЕВЬЮ -->
