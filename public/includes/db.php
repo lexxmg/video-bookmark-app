@@ -1,0 +1,39 @@
+<?php
+// public/includes/db.php
+$dbPath = __DIR__ . '/../../database/database.sqlite';
+
+if (!file_exists(dirname($dbPath))) {
+    mkdir(dirname($dbPath), 0777, true);
+}
+
+try {
+    $pdo = new PDO("sqlite:$dbPath");
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+    
+    // Включаем поддержку каскадного удаления меток
+    $pdo->exec('PRAGMA foreign_keys = ON;');
+    
+    // Переводим SQLite в режим WAL для высокой скорости работы
+    $pdo->exec('PRAGMA journal_mode = WAL;');
+    
+    // Чистый SQL запрос без внутренних комментариев
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS videos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            file_name TEXT NOT NULL UNIQUE,
+            volume REAL DEFAULT 1.0,
+            has_thumbnail INTEGER DEFAULT 0
+        );
+        CREATE TABLE IF NOT EXISTS bookmarks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            video_id INTEGER NOT NULL,
+            title TEXT NOT NULL,
+            timestamp REAL NOT NULL,
+            FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE
+        );
+    ");
+} catch (PDOException $e) {
+    die('Ошибка базы данных: ' . $e->getMessage());
+}
