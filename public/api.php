@@ -192,14 +192,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-        // --- СОХРАНЕНИЕ ТИПА СОРТИРОВКИ НА ГЛАВНОЙ ---
+    // --- СОХРАНЕНИЕ ТИПА СОРТИРОВКИ НА ГЛАВНОЙ ---
     if ($action === 'save_sort') {
         $sortBy = trim($_POST['sort_by'] ?? 'id_desc');
         // Допустимые варианты для безопасности
         if (in_array($sortBy, ['title_asc', 'id_desc', 'views_desc'])) {
             try {
-                $stmt = $pdo->prepare("INSERT INTO settings (key, value) ON CONFLICT(key) DO UPDATE SET value = ?");
-                $stmt->execute([$sortBy, $sortBy]);
+                // REPLACE INTO удаляет старую строку и вставляет новую, если PRIMARY KEY совпал.
+                // Это стандартный синтаксис SQLite, работающий везде.
+                $stmt = $pdo->prepare("REPLACE INTO settings (key, value) VALUES ('sort_by', ?)");
+                $stmt->execute([$sortBy]);
                 echo json_encode(['success' => true]);
             } catch (PDOException $e) {
                 echo json_encode(['success' => false, 'error' => $e->getMessage()]);

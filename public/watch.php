@@ -26,7 +26,7 @@ $bookmarks = $stmt->fetchAll();
 
         <!-- Левая колонка: Видеоплеер -->
         <div class="lg:col-span-2 bg-white p-4 rounded-xl border border-gray-200 shadow-xs">
-            <video id="videoPlayer" controls class="w-full rounded-lg bg-black aspect-video" data-saved-volume="<?= (float)($video['volume'] ?? 1.0) ?>">
+            <video id="videoPlayer" controls class="w-full rounded-lg bg-black aspect-video" data-saved-volume="<?= (float)($video['volume'] ?? 1.0) ?>" data-saved-position="<?= (float)($video['last_position'] ?? 0.0) ?>">
                 <source src="/storage/videos/<?= rawurlencode($video['file_name']) ?>" type="video/mp4">
                 Ваш браузер не поддерживает встроенный HTML5 плеер.
             </video>
@@ -88,6 +88,19 @@ $bookmarks = $stmt->fetchAll();
     const player = document.getElementById('videoPlayer');
     const modal = document.getElementById('bookmarkModal');
     const videoId = <?= $videoId ?>;
+
+        // Автоматическое увеличение счетчика просмотров при открытии страницы
+    document.addEventListener("DOMContentLoaded", function() {
+        const formData = new FormData();
+        formData.append('action', 'increment_views');
+        formData.append('video_id', videoId);
+
+        fetch('api.php', {
+            method: 'POST',
+            body: formData
+        })
+        .catch(err => console.error('Ошибка инкремента просмотров:', err));
+    });
 
     function goToTime(seconds) {
         player.currentTime = seconds;
@@ -255,6 +268,43 @@ $bookmarks = $stmt->fetchAll();
             });
         }, 400);
     });
+
+        // --- АВТОМАТИЧЕСКАЯ ПЕРЕМОТКА НА ПОСЛЕДНЮЮ ПОЗИЦИЮ ---
+    const savedPosition = player.getAttribute('data-saved-position');
+    if (savedPosition !== null && parseFloat(savedPosition) > 0) {
+        // Перематываем видео на сохраненную секунду при первой загрузке
+        player.currentTime = parseFloat(savedPosition);
+    }
+
+    // --- УМНОЕ СОХРАНЕНИЕ ПОЛОЖЕНИЯ ПЛЕЕРА (ДЕБАУНС 1 СЕКУНДА) ---
+    let positionTimeout;
+    player.addEventListener('timeupdate', function() {
+        // Если видео на паузе, сохраняем позицию моментально (например, при установке метки)
+        if (player.paused) {
+            saveCurrentPositionDirectly();
+            return;
+        }
+
+        // Если видео проигрывается, используем дебаунс, чтобы слать запросы не чаще раза в секунду
+        clearTimeout(positionTimeout);
+        positionTimeout = setTimeout(() => {
+            saveCurrentPositionDirectly();
+        }, 1000);
+    });
+
+    // Функция отправки позиции в API
+    function saveCurrentPositionDirectly() {
+        const formData = new FormData();
+        formData.append('action', 'save_position');
+        formData.append('video_id', videoId);
+        formData.append('position', player.currentTime);
+        
+        fetch('api.php', {
+            method: 'POST',
+            body: formData
+        })
+        .catch(err => console.error('Ошибка сохранения позиции:', err));
+    }
 </script>
 
 <?php include __DIR__ . '/includes/footer.php'; ?>
