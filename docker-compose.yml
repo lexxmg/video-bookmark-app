@@ -1,6 +1,5 @@
-version: '3.8'
-
 services:
+  # 1. Веб-сервер Nginx
   web:
     image: nginx:alpine
     ports:
@@ -11,9 +10,23 @@ services:
     depends_on:
       - app
 
+  # 2. Чистый PHP-FPM для работы сайта
   app:
-    build: .
-    # Прокидываем скомпилированный по стандартам Node.js файл обратно на ваш ПК и включаем PHP
-    command: sh -c "cp /tmp/tailwind.css /var/www/html/public/includes/tailwind.css && php-fpm -d upload_max_filesize=2000M -d post_max_size=2000M"
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    command: php-fpm -d upload_max_filesize=2000M -d post_max_size=2000M
     volumes:
       - ./:/var/www/html
+
+  # 3. ИЗОЛИРОВАННЫЙ СБОРЩИК СТИЛЕЙ
+  builder:
+    build:
+      context: ./tailwind-compiler
+    volumes:
+      - ./:/src
+    environment:
+      - NODE_PATH=/usr/local/lib/node_modules
+    command: tailwindcss -i /src/public/includes/input.css -o /src/public/includes/tailwind.css --minify
+    profiles:
+      - tools  # ЭТОТ БЛОК ИЗОЛИРУЕТ КОНТЕЙНЕР ОТ АВТОЗАПУСКА
