@@ -37,6 +37,8 @@ try {
             FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE
         );
 
+        CREATE INDEX IF NOT EXISTS idx_bookmarks_video_timestamp ON bookmarks(video_id, timestamp);
+
         CREATE TABLE IF NOT EXISTS settings (
             key TEXT PRIMARY KEY,
             value TEXT NOT NULL
@@ -44,6 +46,10 @@ try {
 
         INSERT OR IGNORE INTO settings (key, value) VALUES ('sort_by', 'id_desc');
     ");
+function h($text) {
+    return htmlspecialchars($text ?? '', ENT_QUOTES, 'UTF-8');
+}
+
 } catch (PDOException $e) {
     die('Ошибка базы данных: ' . $e->getMessage());
 }

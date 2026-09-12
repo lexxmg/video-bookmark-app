@@ -54,7 +54,7 @@ $bookmarks = $stmt->fetchAll();
                             <span class="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-md mr-3 shrink-0">
                                 <?= sprintf('%02d:%02d', floor($b['timestamp'] / 60), (int)$b['timestamp'] % 60) ?>
                             </span>
-                            <span id="title-text-<?= $b['id'] ?>" class="break-all"><?= htmlspecialchars($b['title']) ?></span>
+                            <span id="title-text-<?= $b['id'] ?>" class="break-all"><?= h($b['title']) ?></span>
                         </button>
                         <div class="flex gap-3 ml-2 shrink-0">
                             <button onclick="editBookmark(<?= $b['id'] ?>)" class="bg-none border-none text-gray-400 hover:text-yellow-600 text-xs cursor-pointer p-0">Ред.</button>

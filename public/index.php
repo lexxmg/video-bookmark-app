@@ -29,7 +29,29 @@ switch ($currentSort) {
 }
 
 $videos = $pdo->query("SELECT * FROM videos $orderBy")->fetchAll();
+
+// --- НОВАЯ СВЕРХБЫСТРАЯ ЗАЩИТА ОТ ДУРАКА ---
+$brokenThumbIds = [];
+
+// Проверяем файлы на диске, используя индекс массива $index
+foreach ($videos as $index => $v) {
+    $imgName = pathinfo($v['file_name'], PATHINFO_FILENAME) . '.jpg';
+    $thumbPath = __DIR__ . '/../storage/thumbnails/' . $imgName;
+
+    if ((int)$v['has_thumbnail'] === 1 && !file_exists($thumbPath)) {
+        $brokenThumbIds[] = $v['id'];
+        $videos[$index]['has_thumbnail'] = 0; // Меняем значение в массиве для текущего рендеринга
+    }
+}
+
+// Отправляем в базу данных ОДИН пакетный запрос вместо кучи мелких
+if (!empty($brokenThumbIds)) {
+    $placeholders = implode(',', array_fill(0, count($brokenThumbIds), '?'));
+    $fixStmt = $pdo->prepare("UPDATE videos SET has_thumbnail = 0 WHERE id IN ($placeholders)");
+    $fixStmt->execute($brokenThumbIds);
+}
 ?>
+
 
 <!-- Главный контейнер -->
 <div class="max-w-7xl mx-auto px-6 py-8 w-full box-border">
@@ -72,13 +94,6 @@ $videos = $pdo->query("SELECT * FROM videos $orderBy")->fetchAll();
             <?php foreach ($videos as $v): ?>
                 <?php
                 $imgName = pathinfo($v['file_name'], PATHINFO_FILENAME) . '.jpg';
-                $thumbPath = __DIR__ . '/../storage/thumbnails/' . $imgName;
-
-                if ((int)$v['has_thumbnail'] === 1 && !file_exists($thumbPath)) {
-                    $fixStmt = $pdo->prepare("UPDATE videos SET has_thumbnail = 0 WHERE id = ?");
-                    $fixStmt->execute([$v['id']]);
-                    $v['has_thumbnail'] = 0;
-                }
                 ?>
 
                 <div class="bg-white border border-gray-200 rounded-xl overflow-hidden flex flex-col shadow-sm hover:shadow-md transition-shadow duration-200 h-85 box-border" id="video-card-<?= $v['id'] ?>">
