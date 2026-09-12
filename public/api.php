@@ -212,6 +212,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
+        // --- ОБНУЛЕНИЕ СЧЕТЧИКА ПРОСМОТРОВ ---
+    if ($action === 'reset_views') {
+        $video_id = (int)($_POST['video_id'] ?? 0);
+
+        try {
+            $stmt = $pdo->prepare("UPDATE videos SET views_count = 0 WHERE id = ?");
+            $stmt->execute([$video_id]);
+            echo json_encode(['success' => true]);
+        } catch (PDOException $e) {
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
+        exit;
+    }
+
     // --- ЗАПОМИНАНИЕ ПОЛОЖЕНИЯ ПЛЕЕРА ---
     if ($action === 'save_position') {
         $video_id = (int)($_POST['video_id'] ?? 0);

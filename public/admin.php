@@ -10,10 +10,10 @@ $error = '';
 // --- ЛОГИКА ЗАГРУЗКИ ФАЙЛА ЧЕРЕЗ БРАУЗЕР ---
 if (isset($_FILES['video_file'])) {
     $file = $_FILES['video_file'];
-    
+
     if ($file['error'] === UPLOAD_ERR_OK) {
         $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-        
+
         if ($ext !== 'mp4') {
             $error = "Разрешены только файлы в формате .mp4";
         } else {
@@ -100,7 +100,7 @@ $allVideos = $pdo->query("SELECT * FROM videos ORDER BY id DESC")->fetchAll();
 ?>
 
 <div class="container" style="max-w: 64rem; margin-left: auto; margin-right: auto;">
-    
+
     <!-- Сообщения об успехе или ошибке -->
     <?php if ($message): ?>
         <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 1rem; border-radius: 0.375rem; margin-bottom: 1.5rem; font-size: 0.875rem;">
@@ -114,14 +114,14 @@ $allVideos = $pdo->query("SELECT * FROM videos ORDER BY id DESC")->fetchAll();
     <?php endif; ?>
 
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
-        
-                <!-- БЛОК 1: ЗАГРУЗКА НОВОГО ВИДЕО -->
+
+        <!-- БЛОК 1: ЗАГРУЗКА НОВОГО ВИДЕО -->
         <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
             <h3 class="text-xl font-bold mb-4 text-gray-700 m-0">Загрузить новое видео</h3>
-            
+
             <form method="POST" enctype="multipart/form-data" id="uploadForm" class="flex flex-col gap-4">
                 <span class="block text-xs font-semibold text-gray-500 uppercase tracking-wider">Выберите файл (.mp4):</span>
-                
+
                 <!-- КРАСИВАЯ КЛИКАБЕЛЬНАЯ ЗОНА С СЕНСОРНЫМ КУРСОРOM -->
                 <label class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 hover:border-blue-500 transition duration-150 p-4 box-border text-center">
                     <div class="flex flex-col items-center justify-center pt-5 pb-6">
@@ -132,12 +132,12 @@ $allVideos = $pdo->query("SELECT * FROM videos ORDER BY id DESC")->fetchAll();
                     <!-- Сам скрытый инпут, который активируется кликом по лейблу сверху -->
                     <input type="file" name="video_file" id="video_file_input" accept="video/mp4" required class="hidden">
                 </label>
-                
+
                 <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg font-semibold text-sm shadow-sm hover:shadow-md transition duration-150 cursor-pointer border-none mt-2">
                     🚀 Начать загрузку на сервер
                 </button>
             </form>
-            
+
             <div id="progressStatus" class="hidden mt-4 text-sm text-blue-600 font-semibold">
                 ⏳ Файл отправляется на сервер, пожалуйста, не закрывайте вкладку...
             </div>
@@ -163,7 +163,7 @@ $allVideos = $pdo->query("SELECT * FROM videos ORDER BY id DESC")->fetchAll();
     <!-- БЛОК 3: ТАБЛИЦА УПРАВЛЕНИЯ ФАЙЛАМИ -->
     <div class="bg-white p-6 rounded-md shadow-sm border border-gray-200">
         <h3 class="text-xl font-bold mb-4 text-gray-700" style="margin-top:0;">Все загруженные видеоматериалы (<?= count($allVideos) ?>)</h3>
-        
+
         <?php if (empty($allVideos)): ?>
             <p style="color:#9ca3af; text-align:center; padding: 2rem 0; font-size:0.875rem;">В базе данных пока нет ни одного видео.</p>
         <?php else: ?>
@@ -181,7 +181,12 @@ $allVideos = $pdo->query("SELECT * FROM videos ORDER BY id DESC")->fetchAll();
                             <tr id="video-row-<?= $v['id'] ?>" style="border-bottom: 1px solid #f3f4f6;" class="hover:bg-gray-50">
                                 <td style="padding: 0.75rem 0.5rem; font-weight: 600; color: #1f2937;"><?= htmlspecialchars($v['title']) ?></td>
                                 <td style="padding: 0.75rem 0.5rem; color: #6b7280; font-family: monospace;"><?= htmlspecialchars($v['file_name']) ?></td>
-                                <td style="padding: 0.75rem 0.5rem; text-align: center;">
+                                <td style="padding: 0.75rem 0.5rem; text-align: center; display: flex; justify-content: center; gap: 0.5rem;">
+                                    <!-- Кнопка обнуления просмотров -->
+                                    <button onclick="resetVideoViews(<?= $v['id'] ?>, '<?= htmlspecialchars($v['title'], ENT_QUOTES) ?>')" class="bg-amber-100 hover:bg-amber-200 text-amber-700 px-3 py-1 rounded border-none font-medium text-xs cursor-pointer transition">
+                                        🔄 Сбросить просмотры
+                                    </button>
+
                                     <button onclick="deleteVideoCompletely(<?= $v['id'] ?>, '<?= htmlspecialchars($v['title'], ENT_QUOTES) ?>')" class="bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1 rounded border-none font-medium text-xs cursor-pointer transition">
                                         🗑️ Удалить
                                     </button>
@@ -196,39 +201,69 @@ $allVideos = $pdo->query("SELECT * FROM videos ORDER BY id DESC")->fetchAll();
 </div>
 
 <script>
-// Индикация отправки формы
-document.getElementById('uploadForm').addEventListener('submit', function() {
-    document.getElementById('progressStatus').style.display = 'block';
-});
+    // Индикация отправки формы
+    document.getElementById('uploadForm').addEventListener('submit', function() {
+        document.getElementById('progressStatus').style.display = 'block';
+    });
 
-// Асинхронное полное удаление видеоурока
-function deleteVideoCompletely(id, title) {
-    if (!confirm("Вы действительно хотите НАВСЕГДА удалить видео «" + title + "»?\n\nБудет физически удален .mp4 файл, превью .jpg и ВСЕ созданные закладки таймкодов!")) {
-        return;
+    // Асинхронное полное удаление видеоурока
+    function deleteVideoCompletely(id, title) {
+        if (!confirm("Вы действительно хотите НАВСЕГДА удалить видео «" + title + "»?\n\nБудет физически удален .mp4 файл, превью .jpg и ВСЕ созданные закладки таймкодов!")) {
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('action', 'delete_video_completely');
+        formData.append('id', id);
+
+        fetch('api.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('video-row-' + id).remove();
+                } else {
+                    alert("Ошибка при удалении: " + data.error);
+                }
+            })
+            .catch(err => alert("Ошибка сети при отправке запроса в API"));
     }
 
-    const formData = new FormData();
-    formData.append('action', 'delete_video_completely');
-    formData.append('id', id);
+    // Динамическое отображение имени выбранного файла в админке
+    document.getElementById('video_file_input').addEventListener('change', function(e) {
+        const fileName = e.target.files[0] ? e.target.files[0].name : "Нажмите для выбора файла";
+        document.getElementById('file-select-text').innerText = fileName;
+        document.getElementById('file-select-text').classList.add('text-blue-600');
+    });
 
-    fetch('api.php', { method: 'POST', body: formData })
-    .then(res => res.json())
-    .then(data => {
-        if (data.success) {
-            document.getElementById('video-row-' + id).remove();
-        } else {
-            alert("Ошибка при удалении: " + data.error);
+    // Асинхронное обнуление счетчика просмотров
+    function resetVideoViews(id, title) {
+        if (!confirm("Вы действительно хотите обнулить счетчик просмотров для видео «" + title + "»?")) {
+            return;
         }
-    })
-    .catch(err => alert("Ошибка сети при отправке запроса в API"));
-}
 
-// Динамическое отображение имени выбранного файла в админке
-document.getElementById('video_file_input').addEventListener('change', function(e) {
-    const fileName = e.target.files[0] ? e.target.files[0].name : "Нажмите для выбора файла";
-    document.getElementById('file-select-text').innerText = fileName;
-    document.getElementById('file-select-text').classList.add('text-blue-600');
-});
+        const formData = new FormData();
+        formData.append('action', 'reset_views');
+        formData.append('video_id', id);
+
+        fetch('api.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert("Счетчик просмотров успешно обнулен!");
+                    // Если вы захотите, чтобы количество просмотров динамически обновлялось в интерфейсе админки,
+                    // здесь можно перезагрузить страницу: window.location.reload();
+                } else {
+                    alert("Ошибка при обнулении: " + data.error);
+                }
+            })
+            .catch(err => alert("Ошибка сети при отправке запроса в API"));
+    }
 </script>
 
 <?php include __DIR__ . '/includes/footer.php'; ?>
