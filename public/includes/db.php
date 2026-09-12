@@ -24,8 +24,11 @@ try {
             title TEXT NOT NULL,
             file_name TEXT NOT NULL UNIQUE,
             volume REAL DEFAULT 1.0,
-            has_thumbnail INTEGER DEFAULT 0
+            has_thumbnail INTEGER DEFAULT 0,
+            views_count INTEGER DEFAULT 0,
+            last_position REAL DEFAULT 0.0
         );
+
         CREATE TABLE IF NOT EXISTS bookmarks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             video_id INTEGER NOT NULL,
@@ -33,6 +36,13 @@ try {
             timestamp REAL NOT NULL,
             FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE
         );
+
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        );
+
+        INSERT OR IGNORE INTO settings (key, value) VALUES ('sort_by', 'id_desc');
     ");
 } catch (PDOException $e) {
     die('Ошибка базы данных: ' . $e->getMessage());

@@ -191,6 +191,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         exit;
     }
+
+        // --- СОХРАНЕНИЕ ТИПА СОРТИРОВКИ НА ГЛАВНОЙ ---
+    if ($action === 'save_sort') {
+        $sortBy = trim($_POST['sort_by'] ?? 'id_desc');
+        // Допустимые варианты для безопасности
+        if (in_array($sortBy, ['title_asc', 'id_desc', 'views_desc'])) {
+            try {
+                $stmt = $pdo->prepare("INSERT INTO settings (key, value) ON CONFLICT(key) DO UPDATE SET value = ?");
+                $stmt->execute([$sortBy, $sortBy]);
+                echo json_encode(['success' => true]);
+            } catch (PDOException $e) {
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            }
+        } else {
+            echo json_encode(['success' => false, 'error' => 'Неверный тип сортировки']);
+        }
+        exit;
+    }
+
+    // --- ЗАПОМИНАНИЕ ПОЛОЖЕНИЯ ПЛЕЕРА ---
+    if ($action === 'save_position') {
+        $video_id = (int)($_POST['video_id'] ?? 0);
+        $position = (float)($_POST['position'] ?? 0.0);
+
+        try {
+            $stmt = $pdo->prepare("UPDATE videos SET last_position = ? WHERE id = ?");
+            $stmt->execute([$position, $video_id]);
+            echo json_encode(['success' => true]);
+        } catch (PDOException $e) {
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
+        exit;
+    }
+
+    // --- УВЕЛИЧЕНИЕ СЧЕТЧИКА ПРОСМОТРОВ ---
+    if ($action === 'increment_views') {
+        $video_id = (int)($_POST['video_id'] ?? 0);
+
+        try {
+            $stmt = $pdo->prepare("UPDATE videos SET views_count = views_count + 1 WHERE id = ?");
+            $stmt->execute([$video_id]);
+            echo json_encode(['success' => true]);
+        } catch (PDOException $e) {
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
+        exit;
+    }
 }
 
 echo json_encode(['success' => false, 'error' => 'Неверный запрос API']);
