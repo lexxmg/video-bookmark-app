@@ -1,93 +1,107 @@
 document.addEventListener("DOMContentLoaded", function () {
-    // Включаем ручную сортировку ТОЛЬКО если у пользователя активирован режим "Вручную"
-    // Мы понимаем это по наличию класса у кнопки сортировки
-    const customSortBtn = document.getElementById('btn-sort-custom');
-    if (!customSortBtn || !customSortBtn.classList.contains('bg-white')) {
-        return; // Если активен другой режим сортировки — перетаскивание заблокировано
-    }
-
-    // Находим сетку-контейнер и все карточки видео
     const gridContainer = document.querySelector('.grid');
     if (!gridContainer) return;
 
-    const cards = gridContainer.querySelectorAll('[id^="video-card-"]');
+    // Проверяем, активен ли сейчас режим "Вручную"
+    const customSortBtn = document.getElementById('btn-sort-custom');
+    
+    // Создаем элемент кастомного контекстного меню
+    const ctxMenu = document.createElement('div');
+    ctxMenu.id = 'custom-sort-menu';
+    // Стилизуем меню строго по канонам Tailwind v4 (мягкие тени, скругления, фокус)
+    ctxMenu.className = 'hidden fixed bg-white border border-gray-200 rounded-xl shadow-xl p-1.5 z-50 min-w-[180px] flex flex-col gap-0.5 box-border';
+    ctxMenu.innerHTML = `
+        <button data-action="top" class="w-full text-left bg-transparent hover:bg-gray-100 text-gray-700 px-3 py-2 rounded-lg text-xs font-bold border-none cursor-pointer transition flex items-center gap-2">🔝 В самое начало</button>
+        <button data-action="left" class="w-full text-left bg-transparent hover:bg-gray-100 text-gray-700 px-3 py-2 rounded-lg text-xs font-bold border-none cursor-pointer transition flex items-center gap-2">⬅️ Сдвинуть влево</button>
+        <button data-action="right" class="w-full text-left bg-transparent hover:bg-gray-100 text-gray-700 px-3 py-2 rounded-lg text-xs font-bold border-none cursor-pointer transition flex items-center gap-2">➡️ Сдвинуть вправо</button>
+        <button data-action="bottom" class="w-full text-left bg-transparent hover:bg-gray-100 text-gray-700 px-3 py-2 rounded-lg text-xs font-bold border-none cursor-pointer transition flex items-center gap-2">🔚 В самый конец</button>
+    `;
+    document.body.appendChild(ctxMenu);
 
-    // Делаем каждую карточку перетаскиваемой и добавляем визуальные маркеры
-    cards.forEach(card => {
-        card.setAttribute('draggable', 'true');
-        // Меняем курсор мыши, чтобы пользователь сразу понял, что плитку можно схватить
-        card.style.cursor = 'grab';
-        
-        // Отключаем стандартный Drag-and-Drop для картинок внутри карточки, 
-        // чтобы они не мешали тащить саму плитку
-        const img = card.querySelector('img');
-        if (img) img.setAttribute('draggable', 'false');
+    let activeCard = null; // Карточка, для которой открыли меню
 
-        // Событие 1: Пользователь захватил карточку мышкой
-        card.addEventListener('dragstart', function (e) {
-            card.classList.add('opacity-40', 'scale-95'); // Эффект "полупрозрачности" как на iOS
-            card.style.cursor = 'grabbing';
-            e.dataTransfer.effectAllowed = 'move';
-            // Запоминаем ID перетаскиваемой карточки
-            e.dataTransfer.setData('text/plain', card.id);
-        });
+    // --- ДЕЛЕГИРОВАНИЕ: ЛОВИМ ПРАВЫЙ КЛИК НА СЕТКЕ ---
+    gridContainer.addEventListener('contextmenu', function (e) {
+        // Проверяем, включен ли режим "Вручную" (кнопка должна иметь белый фон активной вкладки)
+        if (!customSortBtn || !customSortBtn.classList.contains('bg-white')) {
+            return; // Если активен другой режим — работает стандартное меню браузера
+        }
 
-        // Событие 2: Карточку отпустили (в любом месте)
-        card.addEventListener('dragend', function () {
-            card.classList.remove('opacity-40', 'scale-95');
-            card.style.cursor = 'grab';
-            
-            // Зачищаем временные стили подсветки со всех карточек
-            cards.forEach(c => c.classList.remove('border-blue-500', 'border-2'));
-            
-            // Сохраняем получившийся порядок в базу данных
-            saveNewCardsOrder();
-        });
+        // Находим карточку, по которой кликнули
+        const card = e.target.closest('[id^="video-card-"]');
+        if (!card) return;
 
-        // Событие 3: Перетаскиваемый элемент находится НАД текущей карточкой
-        card.addEventListener('dragover', function (e) {
-            e.preventDefault(); // Разрешаем сброс (Drop) элемента сюда
-            e.dataTransfer.dropEffect = 'move';
-            
-            const draggingId = e.dataTransfer.getData('text/plain') || document.querySelector('.opacity-40')?.id;
-            if (!draggingId || draggingId === card.id) return;
+        // Блокируем стандартное системное меню браузера
+        e.preventDefault();
+        activeCard = card;
 
-            // Вычисляем, в какую половину карточки (левую или правую) целится курсор
-            const bounding = card.getBoundingClientRect();
-            const offset = e.clientX - bounding.left;
-            
-            // Динамически переставляем карточки в DOM на лету
-            if (offset > bounding.width / 2) {
-                card.after(document.getElementById(draggingId));
-            } else {
-                card.before(document.getElementById(draggingId));
-            }
-        });
+        // Показываем наше кастомное меню ровно в месте клика курсора
+        ctxMenu.style.left = `${e.clientX}px`;
+        ctxMenu.style.top = `${e.clientY}px`;
+        ctxMenu.classList.remove('hidden');
     });
 
-    // Функция сбора актуального порядка плиток и отправки в API
-    function saveNewCardsOrder() {
+    // --- ЗАКРЫТИЕ МЕНЮ ПРИ КЛИКЕ В ЛЮБОЕ ДРУГОЕ МЕСТО ---
+    document.addEventListener('click', function (e) {
+        if (!ctxMenu.classList.contains('hidden')) {
+            ctxMenu.classList.add('hidden');
+        }
+    });
+
+    // --- ОБРАБОТКА ВЫБОРА В МЕНЮ ---
+    ctxMenu.addEventListener('click', function (e) {
+        const button = e.target.closest('button');
+        if (!button || !activeCard) return;
+
+        const action = button.getAttribute('data-action');
+        const allCards = Array.from(gridContainer.querySelectorAll('[id^="video-card-"]'));
+        const index = allCards.indexOf(activeCard);
+
+        // Применяем выбранное действие к DOM-узлам плиток
+        switch (action) {
+            case 'top':
+                // Перемещаем в начало контейнера перед первой карточкой
+                gridContainer.insertBefore(activeCard, gridContainer.firstChild);
+                break;
+
+            case 'left':
+                // Сдвигаем влево (вставляем перед предыдущей карточкой)
+                if (index > 0) {
+                    allCards[index - 1].before(activeCard);
+                }
+                break;
+
+            case 'right':
+                // Сдвигаем вправо (вставляем после следующей карточки)
+                if (index < allCards.length - 1) {
+                    allCards[index + 1].after(activeCard);
+                }
+                break;
+
+            case 'bottom':
+                // Перемещаем в самый конец контейнера
+                gridContainer.appendChild(activeCard);
+                break;
+        }
+
+        // Сохраняем получившийся порядок в базу данных
+        saveNewOrder();
+    });
+
+    // --- AJAX-ОТПРАВКА НОВОГО ПОРЯДКА В БД ---
+    function saveNewOrder() {
         const currentCards = gridContainer.querySelectorAll('[id^="video-card-"]');
         const idsOrder = [];
 
-        // Вытаскиваем чистые числовые ID видео из атрибутов id="video-card-XX"
         currentCards.forEach(card => {
-            const rawId = card.id.replace('video-card-', '');
-            idsOrder.push(rawId);
+            idsOrder.push(card.id.replace('video-card-', ''));
         });
-
-        // Формируем строку формата "4,2,7,1"
-        const orderString = idsOrder.join(',');
 
         const formData = new FormData();
         formData.append('action', 'save_custom_order');
-        formData.append('order', orderString);
+        formData.append('order', idsOrder.join(','));
 
-        // Отправляем тихий фоновый запрос в API без перезагрузки экрана
-        fetch('api.php', {
-            method: 'POST',
-            body: formData
-        })
+        fetch('api.php', { method: 'POST', body: formData })
         .then(res => res.json())
         .then(data => {
             if (!data.success) {
