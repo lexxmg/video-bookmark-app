@@ -16,6 +16,10 @@ try {
 
 // 2. Формируем SQL-запрос в зависимости от типа сортировки
 switch ($currentSort) {
+    case 'custom':
+        // Сортируем по нашему новому полю по возрастанию (1, 2, 3...)
+        $orderBy = "ORDER BY sort_order ASC, id DESC";
+        break;
     case 'title_asc':
         $orderBy = "ORDER BY title ASC";
         break;
@@ -62,7 +66,7 @@ if (!empty($brokenThumbIds)) {
             Доступные материалы для изучения
         </h2>
 
-        <!-- Кнопки сортировки -->
+                <!-- Кнопки сортировки -->
         <div class="flex items-center gap-1.5 bg-gray-200/60 p-1 rounded-xl self-start sm:self-auto">
             <span class="text-xs font-bold text-gray-500 uppercase tracking-wider px-2 hidden md:inline">Сортировка:</span>
 
@@ -79,6 +83,12 @@ if (!empty($brokenThumbIds)) {
             <button onclick="changeSort('views_desc')" id="btn-sort-views_desc"
                 class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all border-none cursor-pointer <?= $currentSort === 'views_desc' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900 bg-transparent' ?>">
                 🔥 Просмотры
+            </button>
+
+            <!-- НАША НОВАЯ КНОПКА РУЧНОЙ СОРТИРОВКИ -->
+            <button onclick="changeSort('custom')" id="btn-sort-custom"
+                class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all border-none cursor-pointer <?= $currentSort === 'custom' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900 bg-transparent' ?>">
+                👋 Вручную
             </button>
         </div>
     </div>
@@ -168,5 +178,6 @@ if (!empty($brokenThumbIds)) {
     });
 </script>
 <script src="/js/main.js"></script>
+<script src="/js/drag.js"></script>
 
 <?php include __DIR__ . '/includes/footer.php'; ?>

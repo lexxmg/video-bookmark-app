@@ -196,7 +196,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'save_sort') {
         $sortBy = trim($_POST['sort_by'] ?? 'id_desc');
         // Допустимые варианты для безопасности
-        if (in_array($sortBy, ['title_asc', 'id_desc', 'views_desc'])) {
+        if (in_array($sortBy, ['title_asc', 'id_desc', 'views_desc', 'custom'])) {
             try {
                 // REPLACE INTO удаляет старую строку и вставляет новую, если PRIMARY KEY совпал.
                 // Это стандартный синтаксис SQLite, работающий везде.
@@ -208,6 +208,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         } else {
             echo json_encode(['success' => false, 'error' => 'Неверный тип сортировки']);
+        }
+        exit;
+    }
+
+    // --- СОХРАНЕНИЕ РУЧНОЙ СОРТИРОВКИ ПЛИТОК ---
+    if ($action === 'save_custom_order') {
+        $orderData = $_POST['order'] ?? ''; // Ожидаем строку формата "id,id,id"
+
+        if (empty($orderData)) {
+            echo json_encode(['success' => false, 'error' => 'Нет данных о порядке']);
+            exit;
+        }
+
+        $ids = explode(',', $orderData);
+
+        try {
+            $pdo->beginTransaction(); // Включаем транзакцию для максимальной скорости записи
+            
+            $stmt = $pdo->prepare("UPDATE videos SET sort_order = ? WHERE id = ?");
+            foreach ($ids as $index => $id) {
+                $stmt->execute([$index + 1, (int)$id]);
+            }
+            
+            $pdo->commit();
+            echo json_encode(['success' => true]);
+        } catch (PDOException $e) {
+            $pdo->rollBack();
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
         }
         exit;
     }
