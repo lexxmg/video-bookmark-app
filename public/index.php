@@ -66,7 +66,7 @@ if (!empty($brokenThumbIds)) {
             Доступные материалы для изучения
         </h2>
 
-                <!-- Кнопки сортировки -->
+        <!-- Кнопки сортировки -->
         <div class="flex items-center gap-1.5 bg-gray-200/60 p-1 rounded-xl self-start sm:self-auto">
             <span class="text-xs font-bold text-gray-500 uppercase tracking-wider px-2 hidden md:inline">Сортировка:</span>
 
@@ -87,8 +87,11 @@ if (!empty($brokenThumbIds)) {
 
             <!-- НАША НОВАЯ КНОПКА РУЧНОЙ СОРТИРОВКИ -->
             <button onclick="changeSort('custom')" id="btn-sort-custom"
-                class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all border-none cursor-pointer <?= $currentSort === 'custom' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900 bg-transparent' ?>">
-                👋 Вручную
+                class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all border-none cursor-pointer flex items-center gap-1.5 relative <?= $currentSort === 'custom' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900 bg-transparent' ?>">
+                <span>👋 Вручную</span>
+
+                <!-- Индикатор справки "!", теперь на него вешаем id для JS -->
+                <span id="sort-hint-trigger" class="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-blue-100 text-blue-600 text-[10px] font-black border border-solid border-blue-300 select-none cursor-help shrink-0">!</span>
             </button>
         </div>
     </div>
@@ -163,8 +166,7 @@ if (!empty($brokenThumbIds)) {
     // Безопасно формируем JSON-массив данных для генератора превью
     const queueData = [
         <?php foreach ($videos as $v): ?>
-            <?php if ((int)$v['has_thumbnail'] !== 1): ?>
-                {
+            <?php if ((int)$v['has_thumbnail'] !== 1): ?> {
                     id: <?= (int)$v['id'] ?>,
                     src: "/storage/videos/<?= rawurlencode($v['file_name']) ?>"
                 },
