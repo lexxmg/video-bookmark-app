@@ -17,26 +17,7 @@ try {
     // Переводим SQLite в режим WAL для высокой скорости работы
     $pdo->exec('PRAGMA journal_mode = WAL;');
 
-    // Совместимый и безопасный способ добавления колонки sort_order в уже существующую базу
-    try {
-        $checkStructure = $pdo->query("PRAGMA table_info(videos)")->fetchAll();
-        $hasSortOrder = false;
-        foreach ($checkStructure as $column) {
-            if ($column['name'] === 'sort_order') {
-                $hasSortOrder = true;
-                break;
-            }
-        }
-        
-        if (!$hasSortOrder) {
-            $pdo->exec("ALTER TABLE videos ADD COLUMN sort_order INTEGER DEFAULT 0;");
-            $pdo->exec("UPDATE videos SET sort_order = 0;");
-        }
-    } catch (PDOException $e) {
-        // Игнорируем возможные мелкие сбои структуры
-    }
-
-    // Создание таблиц (исправлена пропущенная запятая!)
+    // Создание таблиц с нуля (чистая, монолитная структура)
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS videos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -71,7 +52,7 @@ try {
     die('Ошибка базы данных: ' . $e->getMessage());
 }
 
-// Глобальная функция защиты от XSS (вынесена за пределы try-catch)
+// Глобальная функция защиты от XSS
 function h($text) {
     return htmlspecialchars($text ?? '', ENT_QUOTES, 'UTF-8');
 }
